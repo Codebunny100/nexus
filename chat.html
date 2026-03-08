@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS // CHAT</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#020408; --bg2:#060d14; --panel:#080f1a; --panel2:#0a1520;
+    --border:#0a4060; --border-bright:#00d4ff;
+    --cyan:#00d4ff; --cyan2:#00ffcc; --magenta:#ff00aa;
+    --yellow:#ffee00; --red:#ff2244; --green:#00ff88;
+    --text:#a8d8ea; --text-dim:#3a6070; --text-bright:#e0f4ff;
+    --glow:0 0 20px rgba(0,212,255,0.4);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;height:100vh;display:flex;flex-direction:column;overflow:hidden;cursor:default;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);pointer-events:none;z-index:9999;}
+
+  .topbar{display:flex;align-items:center;padding:0 20px;height:48px;border-bottom:1px solid var(--border);background:var(--panel);gap:20px;flex-shrink:0;}
+  .back{color:var(--cyan);text-decoration:none;font-size:11px;letter-spacing:2px;padding:6px 12px;border:1px solid var(--border);transition:all 0.2s;}
+  .back:hover{border-color:var(--cyan);box-shadow:var(--glow);}
+  .topbar-title{font-family:'Orbitron',monospace;font-size:13px;color:var(--cyan);letter-spacing:3px;}
+  .topbar-right{margin-left:auto;display:flex;gap:12px;align-items:center;}
+  .ollama-status{font-size:11px;display:flex;align-items:center;gap:6px;}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);}
+  .dot.on{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .layout{display:flex;flex:1;overflow:hidden;}
+  .sidebar{width:260px;border-right:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column;flex-shrink:0;}
+  .sidebar-section{padding:14px;border-bottom:1px solid var(--border);}
+  .sidebar-label{font-size:10px;color:var(--text-dim);letter-spacing:3px;margin-bottom:10px;}
+  .btn{display:block;width:100%;padding:10px 14px;background:transparent;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;text-align:left;cursor:pointer;transition:all 0.2s;margin-bottom:6px;}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px rgba(0,212,255,0.2);}
+  .btn.primary{border-color:var(--cyan2);color:var(--cyan2);}
+  .btn.primary:hover{background:rgba(0,255,204,0.08);}
+  .agent-list{flex:1;overflow-y:auto;padding:14px;}
+  .agent-item{padding:12px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all 0.2s;position:relative;}
+  .agent-item:hover,.agent-item.active{border-color:var(--cyan);background:rgba(0,212,255,0.05);}
+  .agent-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+  .agent-name{font-size:12px;color:var(--text-bright);margin-bottom:2px;}
+  .agent-model{font-size:10px;color:var(--text-dim);}
+  .agent-actions{display:flex;gap:6px;margin-top:8px;}
+  .agent-btn{font-size:10px;padding:3px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-family:'Share Tech Mono',monospace;transition:all 0.2s;}
+  .agent-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+  .agent-btn.del:hover{border-color:var(--red);color:var(--red);}
+  .session-list{overflow-y:auto;max-height:180px;}
+  .session-item{padding:10px 14px;font-size:11px;cursor:pointer;border-bottom:1px solid var(--border);color:var(--text-dim);transition:all 0.2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .session-item:hover{color:var(--cyan);background:rgba(0,212,255,0.03);}
+  .session-item.active{color:var(--cyan);}
+  .chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  .chat-header{padding:16px 24px;border-bottom:1px solid var(--border);background:var(--panel);display:flex;align-items:center;gap:16px;flex-shrink:0;}
+  .chat-agent-name{font-family:'Orbitron',monospace;font-size:14px;color:var(--cyan);letter-spacing:2px;}
+  .chat-agent-model{font-size:11px;color:var(--text-dim);}
+  .messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px;}
+  .messages::-webkit-scrollbar{width:4px;}
+  .messages::-webkit-scrollbar-thumb{background:var(--border);}
+  .msg{display:flex;gap:14px;animation:fadeIn 0.2s ease;}
+  .msg-avatar{width:36px;height:36px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+  .msg.user .msg-avatar{border-color:var(--cyan2);color:var(--cyan2);}
+  .msg.agent .msg-avatar{border-color:var(--cyan);color:var(--cyan);}
+  .msg-body{flex:1;max-width:800px;}
+  .msg-meta{font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:6px;}
+  .msg-content{font-family:'Rajdhani',sans-serif;font-size:15px;line-height:1.7;color:var(--text-bright);}
+  .msg.user .msg-content{color:var(--text);}
+  .msg-content pre{background:var(--panel2);border:1px solid var(--border);padding:12px;margin:10px 0;font-family:'Share Tech Mono',monospace;font-size:12px;overflow-x:auto;color:var(--cyan2);}
+  .msg-content code{background:var(--panel2);padding:2px 6px;color:var(--cyan2);font-family:'Share Tech Mono',monospace;}
+  .typing{display:flex;align-items:center;gap:4px;padding:4px 0;}
+  .typing span{width:4px;height:4px;background:var(--cyan);border-radius:50%;animation:typing 1.2s infinite;}
+  .typing span:nth-child(2){animation-delay:0.2s;}
+  .typing span:nth-child(3){animation-delay:0.4s;}
+  .input-area{padding:20px 24px;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0;}
+  .input-row{display:flex;gap:10px;align-items:flex-end;}
+  .input-wrapper{flex:1;border:1px solid var(--border);background:var(--bg2);transition:border-color 0.2s;}
+  .input-wrapper:focus-within{border-color:var(--cyan);box-shadow:var(--glow);}
+  textarea{width:100%;background:transparent;border:none;color:var(--text-bright);font-family:'Share Tech Mono',monospace;font-size:13px;padding:14px;resize:none;outline:none;min-height:50px;max-height:160px;}
+  textarea::placeholder{color:var(--text-dim);}
+  .send-btn{padding:14px 24px;background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+  .send-btn:hover{background:rgba(0,212,255,0.1);box-shadow:var(--glow);}
+  .send-btn:disabled{opacity:0.3;cursor:not-allowed;}
+  .stop-btn{padding:14px 24px;background:transparent;border:1px solid var(--red);color:var(--red);font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;cursor:pointer;transition:all 0.2s;white-space:nowrap;display:none;}
+  .stop-btn:hover{background:rgba(255,34,68,0.1);}
+  .input-meta{display:flex;gap:16px;margin-top:8px;font-size:10px;color:var(--text-dim);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;display:none;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--border-bright);width:500px;max-width:90vw;box-shadow:0 0 60px rgba(0,212,255,0.2);}
+  .modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .modal-title{font-family:'Orbitron',monospace;font-size:13px;color:var(--cyan);letter-spacing:2px;}
+  .modal-close{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;}
+  .modal-close:hover{color:var(--red);}
+  .modal-body{padding:24px;display:flex;flex-direction:column;gap:16px;}
+  .field label{display:block;font-size:10px;color:var(--cyan2);letter-spacing:2px;margin-bottom:6px;}
+  .field input,.field select,.field textarea{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text-bright);font-family:'Share Tech Mono',monospace;font-size:12px;padding:10px 12px;outline:none;transition:border-color 0.2s;}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--cyan);}
+  .field select option{background:var(--panel);}
+  .field textarea{resize:vertical;min-height:80px;}
+  .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+  .btn-cancel{padding:10px 20px;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:12px;cursor:pointer;}
+  .btn-save{padding:10px 20px;background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;cursor:pointer;}
+  .btn-save:hover{background:rgba(0,212,255,0.1);}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--text-dim);}
+  .empty-icon{font-family:'Orbitron',monospace;font-size:24px;color:var(--border);margin-bottom:12px;}
+  .empty-label{font-size:12px;letter-spacing:3px;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  @keyframes typing{0%,60%,100%{transform:none;opacity:0.4;}30%{transform:translateY(-6px);opacity:1;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <p>nexus v1</p>
+  <div class="topbar-title">CHAT INTERFACE</div>
+  <div class="topbar-right">
+    <div class="ollama-status">
+      <div class="dot" id="ollamaDot"></div>
+      <span id="ollamaStatus">CHECKING...</span>
+    </div>
+    <input id="ollamaUrl" value="http://localhost:11434" style="background:var(--bg2);border:1px solid var(--border);color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:10px;padding:5px 10px;width:200px;outline:none;">
+    <button class="btn" style="margin:0;padding:6px 12px;font-size:10px;" onclick="checkOllama()">PING</button>
+    <button class="btn" style="margin:0;padding:6px 12px;font-size:10px;border-color:var(--red);color:var(--red);" onclick="resetStorage()">RESET DATA</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">AGENTS</div>
+      <button class="btn primary" onclick="openNewAgent()">+ NEW AGENT</button>
+    </div>
+    <div class="agent-list" id="agentList"></div>
+    <div class="sidebar-section" style="border-top:1px solid var(--border);">
+      <div class="sidebar-label">SESSIONS</div>
+      <button class="btn" onclick="newSession()">+ NEW SESSION</button>
+    </div>
+    <div class="session-list" id="sessionList"></div>
+  </div>
+
+  <div class="chat-area">
+    <div class="chat-header">
+      <div>
+        <div class="chat-agent-name" id="chatAgentName">SELECT AN AGENT</div>
+        <div class="chat-agent-model" id="chatAgentModel">--</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:10px;">
+        <button class="btn" style="margin:0;padding:6px 14px;font-size:10px;" onclick="clearCurrentSession()">CLEAR</button>
+        <button class="btn" style="margin:0;padding:6px 14px;font-size:10px;" onclick="exportSession()">EXPORT</button>
+      </div>
+    </div>
+    <div class="messages" id="messages">
+      <div class="empty-state"><div class="empty-icon">◈</div><div class="empty-label">SELECT OR CREATE AN AGENT TO BEGIN</div></div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-wrapper">
+          <textarea id="msgInput" placeholder="// ENTER MESSAGE..." rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"
+            oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">SEND ▶</button>
+        <button class="stop-btn" id="stopBtn" onclick="stopStreaming()">■ STOP</button>
+      </div>
+      <div class="input-meta">
+        <span>SHIFT+ENTER FOR NEWLINE</span>
+        <span id="tokenEst">~0 TOKENS</span>
+        <span id="streamStatus">IDLE</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="agentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="agentModalTitle">CONFIGURE AGENT</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>AGENT NAME</label><input id="agentName" placeholder="e.g. ANALYST, CODER, RESEARCHER"></div>
+      <div class="field"><label>MODEL</label><select id="agentModel"><option value="">Loading models...</option></select></div>
+      <div class="field"><label>SYSTEM PROMPT</label><textarea id="agentPrompt" placeholder="You are a specialized AI agent..."></textarea></div>
+      <div class="field"><label>TEMPERATURE (0.0 - 2.0)</label><input id="agentTemp" type="number" min="0" max="2" step="0.1" value="0.7"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">CANCEL</button>
+      <button class="btn-save" onclick="saveAgent()">DEPLOY AGENT</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Storage helpers ─────────────────────────────────────────
+// Every read goes to localStorage. No shared in-memory arrays.
+
+function getAgents()  { return JSON.parse(localStorage.getItem('nx_agents')  || '[]'); }
+function setAgents(v) { localStorage.setItem('nx_agents',  JSON.stringify(v)); }
+
+function getSessions()  { return JSON.parse(localStorage.getItem('nx_sessions') || '[]'); }
+function setSessions(v) { localStorage.setItem('nx_sessions', JSON.stringify(v)); }
+
+function getSession(id) {
+  return getSessions().find(s => s.id === id) || null;
+}
+function upsertSession(sess) {
+  const all = getSessions();
+  const i = all.findIndex(s => s.id === sess.id);
+  if (i !== -1) { all[i] = sess; setSessions(all); }
+  // if not found, do nothing — sessions are only created by newSession()
+}
+
+// ── Page-level state (IDs only, never full objects) ─────────
+let activeAgentIdx  = null;
+let activeSessionId = null;
+let streaming       = false;
+let abortCtrl       = null;
+let editingAgentIdx = null;
+
+// ── Boot ────────────────────────────────────────────────────
+function init() {
+  checkOllama();
+  renderAgents();
+  const sessions = getSessions();
+  if (!sessions.length) { newSession(); }
+  else { activeSessionId = sessions[0].id; renderSessions(); renderMessages(); }
+  document.getElementById('msgInput').addEventListener('input', function() {
+    document.getElementById('tokenEst').textContent = '~' + Math.round(this.value.length / 4) + ' TOKENS';
+  });
+}
+
+// ── Ollama ──────────────────────────────────────────────────
+async function checkOllama() {
+  const url = document.getElementById('ollamaUrl').value.trim();
+  try {
+    const r = await fetch(url + '/api/tags', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      window._models = (await r.json()).models || [];
+      document.getElementById('ollamaDot').className = 'dot on';
+      document.getElementById('ollamaStatus').textContent = 'OLLAMA ONLINE';
+      return;
+    }
+  } catch(e) {}
+  window._models = [];
+  document.getElementById('ollamaDot').className = 'dot';
+  document.getElementById('ollamaStatus').textContent = 'OLLAMA OFFLINE';
+}
+
+// ── Agents ──────────────────────────────────────────────────
+function renderAgents() {
+  const agents = getAgents();
+  const el = document.getElementById('agentList');
+  if (!agents.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--text-dim);text-align:center;padding:20px;">NO AGENTS DEPLOYED</div>';
+    return;
+  }
+  el.innerHTML = agents.map((a, i) => `
+    <div class="agent-item ${activeAgentIdx === i ? 'active' : ''}" onclick="selectAgent(${i})">
+      <div class="agent-name">${a.name}</div>
+      <div class="agent-model">${a.model || 'no model'}</div>
+      <div class="agent-actions">
+        <button class="agent-btn" onclick="event.stopPropagation();editAgent(${i})">EDIT</button>
+        <button class="agent-btn del" onclick="event.stopPropagation();deleteAgent(${i})">DEL</button>
+      </div>
+    </div>`).join('');
+}
+
+function selectAgent(i) {
+  activeAgentIdx = i;
+  const a = getAgents()[i];
+  document.getElementById('chatAgentName').textContent = a.name;
+  document.getElementById('chatAgentModel').textContent = `MODEL: ${a.model} // TEMP: ${a.temperature}`;
+  renderAgents();
+}
+
+function openNewAgent() {
+  editingAgentIdx = null;
+  document.getElementById('agentModalTitle').textContent = 'NEW AGENT';
+  document.getElementById('agentName').value = '';
+  document.getElementById('agentPrompt').value = '';
+  document.getElementById('agentTemp').value = '0.7';
+  populateModels(null);
+  document.getElementById('agentModal').classList.add('open');
+}
+
+function editAgent(i) {
+  editingAgentIdx = i;
+  const a = getAgents()[i];
+  document.getElementById('agentModalTitle').textContent = 'EDIT AGENT';
+  document.getElementById('agentName').value = a.name;
+  document.getElementById('agentPrompt').value = a.systemPrompt || '';
+  document.getElementById('agentTemp').value = a.temperature || 0.7;
+  populateModels(a.model);
+  document.getElementById('agentModal').classList.add('open');
+}
+
+function deleteAgent(i) {
+  const agents = getAgents();
+  if (!confirm(`Delete agent "${agents[i].name}"?`)) return;
+  agents.splice(i, 1);
+  setAgents(agents);
+  if (activeAgentIdx === i) {
+    activeAgentIdx = null;
+    document.getElementById('chatAgentName').textContent = 'SELECT AN AGENT';
+    document.getElementById('chatAgentModel').textContent = '--';
+  } else if (activeAgentIdx !== null && activeAgentIdx > i) {
+    activeAgentIdx--;
+  }
+  renderAgents();
+}
+
+function saveAgent() {
+  const agents = getAgents();
+  const agent = {
+    name: (document.getElementById('agentName').value.trim().toUpperCase()) || 'AGENT',
+    model: document.getElementById('agentModel').value,
+    systemPrompt: document.getElementById('agentPrompt').value,
+    temperature: parseFloat(document.getElementById('agentTemp').value) || 0.7
+  };
+  if (editingAgentIdx !== null) {
+    agents[editingAgentIdx] = agent;
+  } else {
+    agents.push(agent);
+    activeAgentIdx = agents.length - 1;
+  }
+  setAgents(agents);
+  renderAgents();
+  closeModal();
+  if (editingAgentIdx === null) selectAgent(activeAgentIdx);
+}
+
+function populateModels(selected) {
+  const sel = document.getElementById('agentModel');
+  const models = window._models || [];
+  if (!models.length) {
+    sel.innerHTML = ['llama3.2','llama3.1','mistral','codellama']
+      .map(m => `<option value="${m}">${m}</option>`).join('');
+  } else {
+    sel.innerHTML = models.map(m =>
+      `<option value="${m.name}" ${m.name === selected ? 'selected' : ''}>${m.name}</option>`
+    ).join('');
+  }
+  if (selected) sel.value = selected;
+}
+
+function closeModal() { document.getElementById('agentModal').classList.remove('open'); }
+
+// ── Sessions ────────────────────────────────────────────────
+function newSession() {
+  const sess = { id: 'sess_' + Date.now(), name: 'NEW SESSION', messages: [] };
+  const all = getSessions();
+  all.unshift(sess);
+  setSessions(all);
+  activeSessionId = sess.id;
+  renderSessions();
+  renderMessages();
+}
+
+function renderSessions() {
+  const sessions = getSessions();
+  document.getElementById('sessionList').innerHTML = sessions.map(s => `
+    <div class="session-item ${s.id === activeSessionId ? 'active' : ''}"
+      onclick="switchSession('${s.id}')">${s.name}</div>`).join('');
+}
+
+function switchSession(id) {
+  console.log('SWITCH to', id, '| was', activeSessionId);
+  activeSessionId = id;
+  renderSessions();
+  renderMessages();
+}
+
+// ── Messages ────────────────────────────────────────────────
+function renderMessages() {
+  const el = document.getElementById('messages');
+  el.innerHTML = '';
+  const sess = activeSessionId ? getSession(activeSessionId) : null;
+  console.log('RENDER', activeSessionId, '| sess:', sess ? sess.name : 'NULL', '| msgs:', sess ? sess.messages.length : 0);
+  console.log('ALL SESSIONS:', getSessions().map(s => ({id:s.id, name:s.name, msgs:s.messages.length})));
+  if (!sess || !sess.messages.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">◈</div><div class="empty-label">START THE CONVERSATION</div></div>';
+    return;
+  }
+  sess.messages.forEach(m => addBubble(m.role, m.content, m.agentName, m.ts, false));
+  el.scrollTop = el.scrollHeight;
+}
+
+// Creates a message bubble in the DOM. Pure UI — no storage.
+function addBubble(role, content, agentName, ts, scroll) {
+  const el = document.getElementById('messages');
+  el.querySelectorAll('.empty-state').forEach(e => e.remove());
+
+  const time  = new Date(ts || Date.now()).toLocaleTimeString();
+  const label = role === 'user' ? 'USER' : ('AGENT: ' + (agentName || '??'));
+  const html  = content
+    .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br>');
+
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `
+    <div class="msg-avatar">${role === 'user' ? '▷' : '◈'}</div>
+    <div class="msg-body">
+      <div class="msg-meta">${label} // ${time}</div>
+      <div class="msg-content">${html}</div>
+    </div>`;
+  el.appendChild(div);
+  if (scroll !== false) el.scrollTop = el.scrollHeight;
+  return div.querySelector('.msg-content');
+}
+
+// ── Send ─────────────────────────────────────────────────────
+async function sendMessage() {
+  if (streaming) return;
+  if (activeAgentIdx === null) { alert('Select an agent first!'); return; }
+  if (!activeSessionId) newSession();
+
+  const textarea = document.getElementById('msgInput');
+  const text = textarea.value.trim();
+  if (!text) return;
+
+  textarea.value = '';
+  textarea.style.height = 'auto';
+
+  const agent = getAgents()[activeAgentIdx];
+  if (!agent) { alert('Agent not found!'); return; }
+
+  const thisSessionId = activeSessionId; // capture now — user may switch sessions during streaming
+  const sess = getSession(thisSessionId);
+  if (!sess) { alert('Session not found!'); return; }
+
+  const ollamaUrl = document.getElementById('ollamaUrl').value.trim();
+  const userTs    = Date.now();
+  const agentName = agent.name;
+
+  // Build Ollama payload from history + new user turn
+  const payload = [];
+  if (agent.systemPrompt) payload.push({ role: 'system', content: agent.systemPrompt });
+  sess.messages.forEach(m => payload.push({ role: m.role, content: m.content }));
+  payload.push({ role: 'user', content: text });
+
+  // Persist user message
+  sess.messages.push({ role: 'user', content: text, agentName, ts: userTs });
+  upsertSession(sess);
+
+  // Render user bubble
+  addBubble('user', text, agentName, userTs, true);
+
+  // Typing indicator
+  const msgEl = document.getElementById('messages');
+  const typingDiv = document.createElement('div');
+  typingDiv.id = 'typing';
+  typingDiv.className = 'msg agent';
+  typingDiv.innerHTML = `<div class="msg-avatar">◈</div><div class="msg-body"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgEl.appendChild(typingDiv);
+  msgEl.scrollTop = msgEl.scrollHeight;
+
+  // Lock UI
+  streaming = true;
+  abortCtrl  = new AbortController();
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('stopBtn').style.display = 'block';
+  document.getElementById('streamStatus').textContent = 'STREAMING...';
+
+  let fullText   = '';
+  let contentEl  = null;
+  const replyTs  = Date.now();
+
+  try {
+    const resp = await fetch(ollamaUrl + '/api/chat', {
+      method: 'POST',
+      signal: abortCtrl.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: agent.model || 'llama3.2',
+        messages: payload,
+        stream: true,
+        options: { temperature: agent.temperature || 0.7 }
+      })
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Ollama error ${resp.status}: ${errText}`);
+    }
+
+    document.getElementById('typing')?.remove();
+    contentEl = addBubble('agent', '', agentName, replyTs, true);
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of dec.decode(value, { stream: true }).split('\n')) {
+        if (!line.trim()) continue;
+        try {
+          const chunk = JSON.parse(line);
+          if (chunk.message?.content) {
+            fullText += chunk.message.content;
+            contentEl.innerHTML = fullText
+              .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
+              .replace(/`([^`]+)`/g, '<code>$1</code>')
+              .replace(/\n/g, '<br>');
+            msgEl.scrollTop = msgEl.scrollHeight;
+          }
+        } catch(e) { /* partial JSON line, skip */ }
+      }
+    }
+
+  } catch(e) {
+    document.getElementById('typing')?.remove();
+    if (e.name !== 'AbortError') {
+      addBubble('agent', 'ERROR: ' + e.message + '\n\nMake sure Ollama is running.', agentName, Date.now(), true);
+    }
+  }
+
+  // Persist assistant reply (even if partial from stop)
+  if (fullText) {
+    const fresh = getSession(thisSessionId);
+    if (fresh) {
+      fresh.messages.push({ role: 'assistant', content: fullText, agentName, ts: replyTs });
+      fresh.name = text.slice(0, 32) + (text.length > 32 ? '...' : '');
+      upsertSession(fresh);
+      renderSessions();
+    }
+  }
+
+  // Unlock UI
+  streaming = false;
+  abortCtrl  = null;
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('streamStatus').textContent = 'IDLE';
+  document.getElementById('tokenEst').textContent = '~0 TOKENS';
+
+  logTrace({ agent: agentName, model: agent.model, prompt: text, response: fullText,
+    tokens: Math.round((text + fullText).length / 4) });
+}
+
+function stopStreaming() { if (abortCtrl) abortCtrl.abort(); }
+
+// ── Misc ─────────────────────────────────────────────────────
+function clearCurrentSession() {
+  const sess = getSession(activeSessionId);
+  if (!sess) return;
+  sess.messages = [];
+  upsertSession(sess);
+  renderMessages();
+}
+
+function exportSession() {
+  const sess = getSession(activeSessionId);
+  if (!sess) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(sess, null, 2)], { type: 'application/json' }));
+  a.download = 'session_' + sess.id + '.json';
+  a.click();
+}
+
+function logTrace(data) {
+  const t = JSON.parse(localStorage.getItem('nx_traces') || '[]');
+  t.unshift({ ...data, ts: Date.now() });
+  if (t.length > 200) t.pop();
+  localStorage.setItem('nx_traces', JSON.stringify(t));
+}
+
+function resetStorage() {
+  if (!confirm('This will delete all sessions and chat history. Agents will be kept. Continue?')) return;
+  localStorage.removeItem('nx_sessions');
+  localStorage.removeItem('nx_traces');
+  activeSessionId = null;
+  newSession();
+  alert('Sessions cleared. Starting fresh.');
+}
+
+init();
+</script>
+</body>
+</html>
